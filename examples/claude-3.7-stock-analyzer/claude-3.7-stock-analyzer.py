@@ -40,10 +40,24 @@ def find_relevant_page_via_map(stock_search_term, url, app):
         print(f"{Colors.GREEN}Search parameter: {map_search_parameter}{Colors.RESET}")
 
         print(f"{Colors.YELLOW}Mapping website using the identified search parameter...{Colors.RESET}")
-        map_website = app.map_url(url, params={"search": map_search_parameter})
+        
+        # Debug - print the app object type
+        print(f"DEBUG: app type: {type(app)}")
+        
+        # Call map_url with the search term
+        map_website = app.map_url(url, search=map_search_parameter)
         print(f"{Colors.GREEN}Website mapping completed successfully.{Colors.RESET}")
-        print(f"{Colors.GREEN}Located {len(map_website['links'])} relevant links.{Colors.RESET}")
-        return map_website['links']
+        
+        # Debug the response type
+        print(f"DEBUG: map_website type: {type(map_website)}")
+        
+        # Try to access links as an attribute instead of dictionary key
+        if hasattr(map_website, 'links'):
+            print(f"{Colors.GREEN}Located {len(map_website.links)} relevant links.{Colors.RESET}")
+            return map_website.links
+        else:
+            print(f"DEBUG: No links attribute found in response")
+            return []
     except Exception as e:
         print(f"{Colors.RED}Error encountered during relevant page identification: {str(e)}{Colors.RESET}")
         return None
@@ -90,16 +104,44 @@ def analyze_top_stocks(map_website, app, client):
         top_links = map_website[:10]
         print(f"{Colors.CYAN}Proceeding to analyze top {len(top_links)} links: {top_links}{Colors.RESET}")
 
-        # Scrape the pages in batch
-        batch_scrape_result = app.batch_scrape_urls(top_links, {'formats': ['markdown']})
+        # Debug the batch_scrape_urls method
+        print(f"DEBUG: batch_scrape_urls method signature: {app.batch_scrape_urls.__code__.co_varnames[:app.batch_scrape_urls.__code__.co_argcount]}")
+        print(f"DEBUG: batch_scrape_urls takes {app.batch_scrape_urls.__code__.co_argcount} arguments")
+        
+        # Call with just the URLs parameter as that's all it accepts
+        batch_scrape_result = app.batch_scrape_urls(top_links)
         print(f"{Colors.GREEN}Batch page scraping completed successfully.{Colors.RESET}")
-
+        
+        # Debug the response type
+        print(f"DEBUG: batch_scrape_result type: {type(batch_scrape_result)}")
+        print(f"DEBUG: batch_scrape_result attributes: {dir(batch_scrape_result)[:10]}...")
+        
         # Prepare content for LLM
         stock_contents = []
-        for scrape_result in batch_scrape_result['data']:
-            stock_contents.append({
-                'content': scrape_result['markdown']
-            })
+        
+        # Check if it has a data attribute instead of being subscriptable
+        if hasattr(batch_scrape_result, 'data'):
+            print(f"DEBUG: Using batch_scrape_result.data, type: {type(batch_scrape_result.data)}")
+            
+            # Get the first result to inspect its structure
+            if batch_scrape_result.data and len(batch_scrape_result.data) > 0:
+                first_result = batch_scrape_result.data[0]
+                print(f"DEBUG: First result type: {type(first_result)}")
+                print(f"DEBUG: First result attributes: {dir(first_result)[:15]}...")
+                
+                # Try to access markdown as an attribute
+                if hasattr(first_result, 'markdown'):
+                    print(f"DEBUG: Found 'markdown' attribute")
+                    
+            # Process all results
+            for scrape_result in batch_scrape_result.data:
+                # Try to access markdown as an attribute instead of a dictionary key
+                if hasattr(scrape_result, 'markdown'):
+                    stock_contents.append({
+                        'content': scrape_result.markdown
+                    })
+                else:
+                    print(f"DEBUG: No markdown attribute found in result")
 
         # Pass all the content to the LLM to analyze and decide which stock to invest in
         analyze_prompt = f"""
@@ -172,6 +214,7 @@ def main():
     if map_website:
         print(f"{Colors.GREEN}Relevant stock pages identified. Proceeding with detailed analysis...{Colors.RESET}")
         # Analyze top stocks
+        print("map_website:", map_website)
         analyze_top_stocks(map_website, app, client)
     else:
         print(f"{Colors.RED}No relevant stock pages identified. Consider refining the search term or trying a different stock.{Colors.RESET}")

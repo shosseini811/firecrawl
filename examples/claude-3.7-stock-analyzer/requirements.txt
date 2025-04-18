@@ -1,0 +1,5 @@
+firecrawl
+python-dotenv
+anthropic
+e2b-code-interpreter
+matplotlib
