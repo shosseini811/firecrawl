@@ -1,10 +1,14 @@
 import os
-from firecrawl import FirecrawlApp
+import sys
 import json
 from dotenv import load_dotenv
 import anthropic
 from e2b_code_interpreter import Sandbox
 import base64
+
+# Add the parent directory to the Python path so we can import firecrawl
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+from firecrawl import FirecrawlApp
 
 # ANSI color codes
 class Colors:
@@ -17,12 +21,20 @@ class Colors:
     RESET = '\033[0m'
 
 # Load environment variables
-load_dotenv()
+print(f"Current working directory: {os.getcwd()}")
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+print(f"Looking for .env file at: {env_path}")
+load_dotenv(env_path)
 
 # Retrieve API keys from environment variables
 firecrawl_api_key = os.getenv("FIRECRAWL_API_KEY")
 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
 e2b_api_key = os.getenv("E2B_API_KEY")
+
+# Debug: Check if API keys are loaded
+print(f"FIRECRAWL_API_KEY loaded: {firecrawl_api_key is not None}")
+print(f"ANTHROPIC_API_KEY loaded: {anthropic_api_key is not None}")
+print(f"E2B_API_KEY loaded: {e2b_api_key is not None}")
 
 # Initialize the FirecrawlApp and Anthropic client
 app = FirecrawlApp(api_key=firecrawl_api_key)
