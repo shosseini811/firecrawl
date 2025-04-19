@@ -37,6 +37,11 @@ def get_version():
       package_path = os.path.dirname(__file__)
       version_file = Path(os.path.join(package_path, '__init__.py')).read_text()
       version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
+
+    #   r"^__version__ = ['\"]([^'\"]*)['\"]"
+    #          ↑           ↑
+    #       group(0)    group(1)
+
       if version_match:
           return version_match.group(1).strip()
   except Exception:
@@ -356,7 +361,7 @@ class DeepResearchStatusResponse(pydantic.BaseModel):
     expiresAt: str
     currentDepth: int
     maxDepth: int
-    activities: List[Dict[str, Any]]
+    activities: List[Dict[str, Any]] # List of Dictionaries. The dictionary keys are strings (str), and the values can be anything (Any).
     sources: List[Dict[str, Any]]
     summaries: List[str]
 
@@ -601,9 +606,9 @@ class FirecrawlApp:
         search_params = {}
         if params:
             if isinstance(params, dict):
-                search_params.update(params)
+                search_params.update(params) # The .update() method for dictionaries takes another dictionary (or key-value pairs) and adds all its key-value pairs into the original dictionary.
             else:
-                search_params.update(params.dict(exclude_none=True))
+                search_params.update(params.dict(exclude_none=True))#  It converts the model into a dictionary, but it skips any fields that have the value None.
 
         # Add individual parameters
         if limit is not None:

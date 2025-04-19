@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import requests
 from dotenv import load_dotenv
 import anthropic
 from e2b_code_interpreter import Sandbox
@@ -37,7 +38,8 @@ print(f"ANTHROPIC_API_KEY loaded: {anthropic_api_key is not None}")
 print(f"E2B_API_KEY loaded: {e2b_api_key is not None}")
 
 # Initialize the FirecrawlApp and Anthropic client
-app = FirecrawlApp(api_key=firecrawl_api_key)
+# Use localhost instead of cloud service
+app = FirecrawlApp(api_url='http://localhost:8000')
 client = anthropic.Anthropic(api_key=anthropic_api_key)
 sandbox = Sandbox(api_key=e2b_api_key)
 
@@ -53,24 +55,57 @@ def find_relevant_page_via_map(stock_search_term, url, app):
 
         print(f"{Colors.YELLOW}Mapping website using the identified search parameter...{Colors.RESET}")
         
-        # Debug - print the app object type
-        print(f"DEBUG: app type: {type(app)}")
-        
         # Call map_url with the search term
         map_website = app.map_url(url, search=map_search_parameter)
         print(f"{Colors.GREEN}Website mapping completed successfully.{Colors.RESET}")
         
-        # Debug the response type
-        print(f"DEBUG: map_website type: {type(map_website)}")
-        
-        # Try to access links as an attribute instead of dictionary key
-        if hasattr(map_website, 'links'):
+        # Handle both dictionary and object responses
+        if isinstance(map_website, dict):
+            if 'success' in map_website and map_website['success'] and 'data' in map_website:
+                data = map_website['data']
+                if 'links' in data:
+                    print(f"{Colors.GREEN}Located {len(data['links'])} relevant links.{Colors.RESET}")
+                    return data['links']
+            elif 'links' in map_website:
+                print(f"{Colors.GREEN}Located {len(map_website['links'])} relevant links.{Colors.RESET}")
+                return map_website['links']
+        elif hasattr(map_website, 'links'):
             print(f"{Colors.GREEN}Located {len(map_website.links)} relevant links.{Colors.RESET}")
             return map_website.links
-        else:
-            print(f"DEBUG: No links attribute found in response")
-            return []
+        
+        print(f"DEBUG: No links found in response")
+        return []
     except Exception as e:
+        # Check if the error response contains useful information
+        try:
+            error_str = str(e)
+            if 'success' in error_str:
+                # Try to parse the error string as JSON-like dictionary
+                import ast
+                error_data = ast.literal_eval(error_str.split('Error: ', 1)[1])
+                if error_data.get('success') and 'data' in error_data:
+                    data = error_data['data']
+                    if 'links' in data:
+                        print(f"{Colors.GREEN}Found links in response.{Colors.RESET}")
+                        return data['links']
+        except:
+            pass
+            
+        if hasattr(e, 'response') and hasattr(e.response, 'json'):
+            try:
+                error_data = e.response.json()
+                if isinstance(error_data, dict):
+                    if error_data.get('success') and 'data' in error_data:
+                        data = error_data['data']
+                        if 'links' in data:
+                            print(f"{Colors.GREEN}Found links in error response.{Colors.RESET}")
+                            return data['links']
+                    elif 'links' in error_data:
+                        print(f"{Colors.GREEN}Found links in error response.{Colors.RESET}")
+                        return error_data['links']
+            except:
+                pass
+                
         print(f"{Colors.RED}Error encountered during relevant page identification: {str(e)}{Colors.RESET}")
         return None
 
@@ -116,12 +151,27 @@ def analyze_top_stocks(map_website, app, client):
         top_links = map_website[:10]
         print(f"{Colors.CYAN}Proceeding to analyze top {len(top_links)} links: {top_links}{Colors.RESET}")
 
-        # Debug the batch_scrape_urls method
-        print(f"DEBUG: batch_scrape_urls method signature: {app.batch_scrape_urls.__code__.co_varnames[:app.batch_scrape_urls.__code__.co_argcount]}")
-        print(f"DEBUG: batch_scrape_urls takes {app.batch_scrape_urls.__code__.co_argcount} arguments")
+        # Scrape each URL individually since we're using a local server
+        batch_scrape_result = {
+            'success': True,
+            'data': []
+        }
         
-        # Call with just the URLs parameter as that's all it accepts
-        batch_scrape_result = app.batch_scrape_urls(top_links)
+        for url in top_links:
+            try:
+                # Make a POST request to the scrape endpoint
+                response = requests.post(
+                    'http://localhost:8000/v1/scrape',
+                    json={'url': url}
+                )
+                response.raise_for_status()
+                
+                # Add the results to our batch result
+                result = response.json()
+                if result.get('success') and result.get('data'):
+                    batch_scrape_result['data'].extend(result['data'])
+            except Exception as e:
+                print(f"Error scraping {url}: {e}")
 
         # Get all attributes of the FirecrawlDocument object
         # all_attributes = dir(batch_scrape_result.data[0])
@@ -137,29 +187,27 @@ def analyze_top_stocks(map_website, app, client):
         # Prepare content for LLM
         stock_contents = []
         
-        # Check if it has a data attribute instead of being subscriptable
-        if hasattr(batch_scrape_result, 'data'):
-            print(f"DEBUG: Using batch_scrape_result.data, type: {type(batch_scrape_result.data)}")
+        # Handle both dictionary and object responses for batch_scrape_result
+        data = []
+        if isinstance(batch_scrape_result, dict):
+            if batch_scrape_result.get('success') and 'data' in batch_scrape_result:
+                data = batch_scrape_result['data']
+        elif hasattr(batch_scrape_result, 'data'):
+            data = batch_scrape_result.data
+        
+        # Process all results
+        for scrape_result in data:
+            content = None
+            # Handle both dictionary and object responses for scrape_result
+            if isinstance(scrape_result, dict) and 'markdown' in scrape_result:
+                content = scrape_result['markdown']
+            elif hasattr(scrape_result, 'markdown'):
+                content = scrape_result.markdown
             
-            # Get the first result to inspect its structure
-            if batch_scrape_result.data and len(batch_scrape_result.data) > 0:
-                first_result = batch_scrape_result.data[0]
-                print(f"DEBUG: First result type: {type(first_result)}")
-                print(f"DEBUG: First result attributes: {dir(first_result)[:15]}...")
-                
-                # Try to access markdown as an attribute
-                if hasattr(first_result, 'markdown'):
-                    print(f"DEBUG: Found 'markdown' attribute")
-                    
-            # Process all results
-            for scrape_result in batch_scrape_result.data:
-                # Try to access markdown as an attribute instead of a dictionary key
-                if hasattr(scrape_result, 'markdown'):
-                    stock_contents.append({
-                        'content': scrape_result.markdown
-                    })
-                else:
-                    print(f"DEBUG: No markdown attribute found in result")
+            if content:
+                stock_contents.append({'content': content})
+            else:
+                print(f"DEBUG: No markdown content found in result")
 
         # Pass all the content to the LLM to analyze and decide which stock to invest in
         analyze_prompt = f"""
