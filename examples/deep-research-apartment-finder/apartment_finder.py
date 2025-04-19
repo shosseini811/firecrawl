@@ -20,7 +20,7 @@ class Colors:
     RESET = '\033[0m'
 
 # Load environment variables
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")

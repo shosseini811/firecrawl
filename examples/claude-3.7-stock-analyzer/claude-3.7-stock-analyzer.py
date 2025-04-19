@@ -122,6 +122,12 @@ def analyze_top_stocks(map_website, app, client):
         
         # Call with just the URLs parameter as that's all it accepts
         batch_scrape_result = app.batch_scrape_urls(top_links)
+
+        # Get all attributes of the FirecrawlDocument object
+        # all_attributes = dir(batch_scrape_result.data[0])
+        # print("All attributes of FirecrawlDocument:")
+        # print(all_attributes)
+
         print(f"{Colors.GREEN}Batch page scraping completed successfully.{Colors.RESET}")
         
         # Debug the response type
@@ -157,9 +163,10 @@ def analyze_top_stocks(map_website, app, client):
 
         # Pass all the content to the LLM to analyze and decide which stock to invest in
         analyze_prompt = f"""
-Based on the following information about different stocks from their Robinhood pages, analyze and determine which stock is the best investment opportunity. DO NOT include any other text, just the JSON.
-
-Return the result in the following JSON format. Only return the JSON, nothing else. Do not include backticks or any other formatting, just the JSON.
+        Based on the following information about different stocks from their Robinhood pages, 
+        analyze and determine which stock is the best investment opportunity. DO NOT include any other text, just the JSON.
+        Return the result in the following JSON format. 
+        Only return the JSON, nothing else. Do not include backticks or any other formatting, just the JSON.
 {{
     "scores": [
         {{
