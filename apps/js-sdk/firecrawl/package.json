@@ -25,10 +25,11 @@
   "author": "Mendable.ai",
   "license": "MIT",
   "dependencies": {
+    "@mendable/firecrawl-js": "^1.24.0",
+    "axios": "^1.6.8",
     "typescript-event-target": "^1.1.1",
     "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.23.0",
-    "axios": "^1.6.8"
+    "zod-to-json-schema": "^3.23.0"
   },
   "bugs": {
     "url": "https://github.com/mendableai/firecrawl/issues"
