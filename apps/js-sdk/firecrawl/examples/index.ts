@@ -602,6 +602,7 @@ export default class FirecrawlApp {
     // if apiKey is null, it will be set to an empty string.
     // if apiKey is provided, it will be used as is.
     this.apiKey = apiKey || '';
+
     this.apiUrl = baseUrl;
     this.init();
   }
@@ -621,10 +622,13 @@ export default class FirecrawlApp {
       "Content-Type": "application/json",
       Authorization: `Bearer ${this.apiKey}`,
     } as AxiosRequestHeaders;
+    console.log('Headers: ', headers);
+
     let jsonData: any = { url, ...params, origin: `js-sdk@${this.version}` };
     console.log('JsonData: ', jsonData);
     if (jsonData?.extract?.schema) {
       let schema = jsonData.extract.schema;
+      console.log('Schema: ', schema);
 
       // Try parsing the schema as a Zod schema
       try {
@@ -657,6 +661,7 @@ export default class FirecrawlApp {
         },
       };
     }
+    console.log('JsonData after: ', jsonData);
     try {
       const response: AxiosResponse = await axios.post(
         this.apiUrl + `/v1/scrape`,
@@ -664,6 +669,7 @@ export default class FirecrawlApp {
         { headers, timeout: params?.timeout !== undefined ? (params.timeout + 5000) : undefined },
       );
       if (response.status === 200) {
+        console.log('Response: ', response.data);
         const responseData = response.data;
         if (responseData.success) {
           return {
